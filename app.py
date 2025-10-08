@@ -20,7 +20,7 @@ def get_db_connection():
 @app.route('/')
 def hello_world():  # put application's code here
     conn = get_db_connection()
-    rows = conn.execute("SELECT it.id AS id, it.full_filepath, is_suspected_ad_manual FROM image_texts it LEFT JOIN image_saved_data isd ON isd.full_filepath = it.full_filepath WHERE is_suspected_ad_manual IS NULL").fetchall()
+    rows = conn.execute("SELECT it.id AS id, it.full_filepath, is_suspected_ad_manual FROM image_texts it LEFT JOIN image_saved_data isd ON isd.full_filepath = it.full_filepath WHERE is_suspected_ad_manual IS NULL ORDER BY RANDOM()").fetchall()
     conn.close()
 
     # convert query results into a string or JSON
