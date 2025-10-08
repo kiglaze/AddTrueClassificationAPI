@@ -1,4 +1,4 @@
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, request
 import sqlite3
 
 app = Flask(__name__)
@@ -26,6 +26,29 @@ def hello_world():  # put application's code here
     # convert query results into a string or JSON
     result = [dict(row) for row in rows]
     return {"data": result}  # Flask automatically JSON-encodes dicts
+
+# Endpoint to update classification
+# Data is sent as JSON with 'classification' and 'filepath' fields
+@app.route('/update_classification', methods=['POST'])
+def update_classification():
+    data = request.get_json()
+    if not data or 'classification' not in data or 'filepath' not in data:
+        return {'error': 'Missing classification or filepath in request'}, 400
+    classification = data['classification']
+    filepath = data['filepath']
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE image_texts
+        SET is_suspected_ad_manual = ?
+        WHERE full_filepath = ?
+    """, (classification, filepath))
+    conn.commit()
+    updated = cur.rowcount
+    conn.close()
+    if updated == 0:
+        return {'error': 'No record updated'}, 404
+    return {'success': True, 'updated': updated}
 
 
 if __name__ == '__main__':
