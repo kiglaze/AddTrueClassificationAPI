@@ -41,13 +41,21 @@ def update_classification():
         return {'error': 'Missing classification or filepath in request'}, 400
     classification = data['classification']
     filepath = data['filepath']
+    classification_issuer = data.get('classification_issuer', 'unknown')
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("""
-        UPDATE image_texts
-        SET is_suspected_ad_manual = ?
-        WHERE full_filepath = ?
-    """, (classification, filepath))
+    cur.execute(
+        """
+        INSERT INTO image_ground_truth
+            (full_filepath, is_suspected_ad_manual, classification_issuer)
+        VALUES (?, ?, ?) ON CONFLICT(classification_issuer, full_filepath)
+        DO
+        UPDATE SET
+            is_suspected_ad_manual = excluded.is_suspected_ad_manual
+        """,
+        (filepath, classification, classification_issuer),
+    )
+
     conn.commit()
     updated = cur.rowcount
     conn.close()
