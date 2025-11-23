@@ -1,3 +1,5 @@
+import textwrap
+
 from flask import Flask, send_from_directory, request
 import sqlite3
 import os
@@ -34,14 +36,31 @@ def get_db_connection():
 
 @app.route('/')
 def get_unclassified_imgs_w_text_data():
+    username = request.cookies.get('username') or None
     conn = get_db_connection()
-    rows = conn.execute("""\
-        SELECT it.id AS id, it.full_filepath, text, text_script, is_suspected_ad_manual, wv.screenshot_filepath, wv.video_filepath FROM image_texts it
+
+    query = textwrap.dedent("""\
+        SELECT it.id AS id, it.full_filepath, wv.website_url, text, text_script, wv.screenshot_filepath, wv.video_filepath FROM image_texts it
         LEFT JOIN image_saved_data isd ON isd.full_filepath = it.full_filepath
         LEFT JOIN websites_visited wv ON wv.website_url = isd.referrer_url
-        WHERE is_suspected_ad_manual IS NULL
-        ORDER BY RANDOM()
-    """).fetchall()
+    """)
+
+    params = ()
+
+    if username is not None:
+        query += textwrap.dedent("""\
+            WHERE it.full_filepath NOT IN (
+                SELECT DISTINCT full_filepath FROM image_ground_truth igt
+                WHERE igt.classification_issuer = ? AND igt.is_suspected_ad_manual IN (0, 1)
+            )
+        """)
+        params = (username,)
+
+    query += "\nORDER BY RANDOM()"
+
+
+    rows = conn.execute(query, params).fetchall()
+
     conn.close()
 
     # convert query results into a string or JSON
