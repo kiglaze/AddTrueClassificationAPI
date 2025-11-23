@@ -10,12 +10,22 @@ app = Flask(__name__)
 # Absolute path to your saved_images directory
 MITMPROXY_AD_PULL_PROJECT_DIR = os.getenv('MITMPROXY_AD_PULL_PROJECT_DIR')
 SAVED_IMAGES_DIR = os.path.join(MITMPROXY_AD_PULL_PROJECT_DIR.rstrip('/'), 'saved_images')
+SCREENSHOTS_DIR = os.path.join(MITMPROXY_AD_PULL_PROJECT_DIR.rstrip('/'), 'browser_client_interface/screenshots')
+RECORDINGS_DIR = os.path.join(MITMPROXY_AD_PULL_PROJECT_DIR.rstrip('/'), 'browser_client_interface/recordings')
 
 DATABASE_FILEPATH = os.path.join(MITMPROXY_AD_PULL_PROJECT_DIR.rstrip('/'), "extracted_texts.db")
 
 @app.route('/saved_images/<path:filename>')
 def serve_saved_image(filename):
     return send_from_directory(SAVED_IMAGES_DIR, filename)
+
+@app.route('/browser_client_interface/recordings/<path:filename>')
+def serve_recording(filename):
+    return send_from_directory(RECORDINGS_DIR, filename)
+
+@app.route('/browser_client_interface/screenshots/<path:filename>')
+def serve_screenshot(filename):
+    return send_from_directory(SCREENSHOTS_DIR, filename)
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE_FILEPATH)
