@@ -4,6 +4,7 @@ from flask import Flask, send_from_directory, request
 import sqlite3
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
 load_dotenv()
 
@@ -16,6 +17,8 @@ SCREENSHOTS_DIR = os.path.join(MITMPROXY_AD_PULL_PROJECT_DIR.rstrip('/'), 'brows
 RECORDINGS_DIR = os.path.join(MITMPROXY_AD_PULL_PROJECT_DIR.rstrip('/'), 'browser_client_interface/recordings')
 
 DATABASE_FILEPATH = os.path.join(MITMPROXY_AD_PULL_PROJECT_DIR.rstrip('/'), "extracted_texts.db")
+
+ALLOWED_FILEPATHS_FILE = os.path.join(Path(__file__).resolve().parent, 'input', 'allowed_image_filepaths.txt')
 
 @app.route('/saved_images/<path:filename>')
 def serve_saved_image(filename):
@@ -37,6 +40,12 @@ def get_db_connection():
 @app.route('/')
 def get_unclassified_imgs_w_text_data():
     username = request.cookies.get('username') or None
+
+    allowed_filepaths = []
+    if os.path.exists(ALLOWED_FILEPATHS_FILE):
+        with open(ALLOWED_FILEPATHS_FILE, 'r', encoding='utf-8') as f:
+            allowed_filepaths = [line.strip() for line in f if line.strip()]
+
     conn = get_db_connection()
 
     query = textwrap.dedent("""\
@@ -55,6 +64,16 @@ def get_unclassified_imgs_w_text_data():
             )
         """)
         params = (username,)
+        if allowed_filepaths:
+            query += "\nAND it.full_filepath IN ({})".format(
+                ",".join("?" for _ in allowed_filepaths)
+            )
+            params += tuple(allowed_filepaths)
+    elif allowed_filepaths:
+        query += "\nWHERE it.full_filepath IN ({})".format(
+            ",".join("?" for _ in allowed_filepaths)
+        )
+        params = tuple(allowed_filepaths)
 
     query += "\nORDER BY RANDOM()"
 
