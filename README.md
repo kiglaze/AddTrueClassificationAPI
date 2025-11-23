@@ -8,3 +8,5 @@ docker run -p 5000:5000 ad-detection-api
 ```bash
 python -m flask run 
 ```
+## This file can be populated with image file paths to limit images shown in the website questionnaire.
+```input/allowed_image_filepaths.txt```
