@@ -1,4 +1,5 @@
 import textwrap
+from typing import Any
 
 from flask import Flask, send_from_directory, request
 import sqlite3
@@ -37,14 +38,17 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row  # makes rows behave like dictionaries
     return conn
 
-@app.route('/')
-def get_unclassified_imgs_w_text_data():
-    username = request.cookies.get('username') or None
-
+def get_allowed_image_filepaths() -> list[Any]:
     allowed_filepaths = []
     if os.path.exists(ALLOWED_FILEPATHS_FILE):
         with open(ALLOWED_FILEPATHS_FILE, 'r', encoding='utf-8') as f:
             allowed_filepaths = [line.strip() for line in f if line.strip()]
+    return allowed_filepaths
+@app.route('/')
+def get_unclassified_imgs_w_text_data():
+    username = request.cookies.get('username') or None
+
+    allowed_filepaths = get_allowed_image_filepaths()
 
     conn = get_db_connection()
 
@@ -85,6 +89,26 @@ def get_unclassified_imgs_w_text_data():
     # convert query results into a string or JSON
     result = [dict(row) for row in rows]
     return {"data": result}  # Flask automatically JSON-encodes dicts
+
+@app.route('/results')
+def get_ground_truth_results():
+    conn = get_db_connection()
+    query = textwrap.dedent("""\
+        SELECT full_filepath, is_suspected_ad_manual, classification_issuer FROM image_ground_truth
+        WHERE classification_issuer IS NOT NULL AND is_suspected_ad_manual IN (0, 1)
+    """)
+    allowed_filepaths = get_allowed_image_filepaths()
+    params = ()
+    if allowed_filepaths:
+        query += "\nAND image_ground_truth.full_filepath IN ({})".format(
+            ",".join("?" for _ in allowed_filepaths)
+        )
+        params += tuple(allowed_filepaths)
+    query += "\nORDER BY full_filepath, classification_issuer"
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    result = [dict(row) for row in rows]
+    return {"data": result}
 
 # Endpoint to update classification
 # Data is sent as JSON with 'classification' and 'filepath' fields
