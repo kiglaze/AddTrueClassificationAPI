@@ -122,23 +122,33 @@ def update_classification():
     classification_issuer = data.get('classification_issuer', 'unknown')
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute(
-        """
-        INSERT INTO image_ground_truth
-            (full_filepath, is_suspected_ad_manual, classification_issuer)
-        VALUES (?, ?, ?) ON CONFLICT(classification_issuer, full_filepath)
-        DO
-        UPDATE SET
-            is_suspected_ad_manual = excluded.is_suspected_ad_manual
-        """,
-        (filepath, classification, classification_issuer),
-    )
+    try:
+        cur.execute(
+            "INSERT OR IGNORE INTO classifier_users (classification_issuer) VALUES (?)",
+            (classification_issuer,)
+        )
+        cur.execute(
+            """
+            INSERT INTO image_ground_truth
+                (full_filepath, is_suspected_ad_manual, classification_issuer)
+            VALUES (?, ?, ?) ON CONFLICT(classification_issuer, full_filepath)
+            DO
+            UPDATE SET
+                is_suspected_ad_manual = excluded.is_suspected_ad_manual
+            """,
+            (filepath, classification, classification_issuer),
+        )
+        conn.commit()
+        updated = cur.rowcount
+    except Exception as e:
+        conn.rollback()
+        return {'error': f'Database error: {str(e)}'}, 500
+    finally:
+        conn.close()
 
-    conn.commit()
-    updated = cur.rowcount
-    conn.close()
     if updated == 0:
         return {'error': 'No record updated'}, 404
+
     return {'success': True, 'updated': updated}
 
 
