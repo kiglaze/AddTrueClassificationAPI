@@ -19,8 +19,6 @@ RECORDINGS_DIR = os.path.join(MITMPROXY_AD_PULL_PROJECT_DIR.rstrip('/'), 'browse
 
 DATABASE_FILEPATH = os.path.join(MITMPROXY_AD_PULL_PROJECT_DIR.rstrip('/'), "extracted_texts.db")
 
-ALLOWED_FILEPATHS_FILE = os.path.join(Path(__file__).resolve().parent, 'input', 'allowed_image_filepaths.txt')
-
 @app.route('/saved_images/<path:filename>')
 def serve_saved_image(filename):
     return send_from_directory(SAVED_IMAGES_DIR, filename)
@@ -38,17 +36,9 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row  # makes rows behave like dictionaries
     return conn
 
-def get_allowed_image_filepaths() -> list[Any]:
-    allowed_filepaths = []
-    if os.path.exists(ALLOWED_FILEPATHS_FILE):
-        with open(ALLOWED_FILEPATHS_FILE, 'r', encoding='utf-8') as f:
-            allowed_filepaths = [line.strip() for line in f if line.strip()]
-    return allowed_filepaths
 @app.route('/')
 def get_unclassified_imgs_w_text_data():
     username = request.cookies.get('username') or None
-
-    allowed_filepaths = get_allowed_image_filepaths()
 
     conn = get_db_connection()
 
@@ -65,20 +55,11 @@ def get_unclassified_imgs_w_text_data():
             WHERE it.full_filepath NOT IN (
                 SELECT DISTINCT full_filepath FROM image_ground_truth igt
                 WHERE igt.classification_issuer = ? AND igt.is_suspected_ad_manual IN (0, 1)
+            ) AND it.full_filepath IN (
+                SELECT full_filepath FROM users_ground_truth_assignments WHERE classification_issuer = ?
             )
         """)
-        params = (username,)
-        if allowed_filepaths:
-            query += "\nAND it.full_filepath IN ({})".format(
-                ",".join("?" for _ in allowed_filepaths)
-            )
-            params += tuple(allowed_filepaths)
-    elif allowed_filepaths:
-        query += "\nWHERE it.full_filepath IN ({})".format(
-            ",".join("?" for _ in allowed_filepaths)
-        )
-        params = tuple(allowed_filepaths)
-
+        params = (username, username)
     query += "\nORDER BY RANDOM()"
 
 
@@ -96,15 +77,12 @@ def get_ground_truth_results():
     query = textwrap.dedent("""\
         SELECT full_filepath, is_suspected_ad_manual, classification_issuer FROM image_ground_truth
         WHERE classification_issuer IS NOT NULL AND is_suspected_ad_manual IN (0, 1)
-    """)
-    allowed_filepaths = get_allowed_image_filepaths()
-    params = ()
-    if allowed_filepaths:
-        query += "\nAND image_ground_truth.full_filepath IN ({})".format(
-            ",".join("?" for _ in allowed_filepaths)
+        AND image_ground_truth.full_filepath IN (
+            SELECT DISTINCT full_filepath FROM users_ground_truth_assignments
         )
-        params += tuple(allowed_filepaths)
-    query += "\nORDER BY full_filepath, classification_issuer"
+        ORDER BY full_filepath, classification_issuer
+    """)
+    params = ()
     rows = conn.execute(query, params).fetchall()
     conn.close()
     result = [dict(row) for row in rows]
