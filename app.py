@@ -38,37 +38,32 @@ def get_db_connection():
 
 @app.route('/')
 def get_unclassified_imgs_w_text_data():
-    username = request.cookies.get('username') or None
+    user_param_value = request.args.get('user') or None
+    if user_param_value is not None:
+        conn = get_db_connection()
 
-    conn = get_db_connection()
-
-    query = textwrap.dedent("""\
-        SELECT it.id AS id, it.full_filepath, wv.website_url, text, wv.screenshot_filepath, wv.video_filepath FROM image_texts it
-        LEFT JOIN image_saved_data isd ON isd.full_filepath = it.full_filepath
-        LEFT JOIN websites_visited wv ON wv.website_url = isd.referrer_url
-    """)
-
-    params = ()
-
-    if username is not None:
-        query += textwrap.dedent("""\
+        query = textwrap.dedent("""\
+            SELECT it.id AS id, it.full_filepath, wv.website_url, text, wv.screenshot_filepath, wv.video_filepath FROM image_texts it
+            LEFT JOIN image_saved_data isd ON isd.full_filepath = it.full_filepath
+            LEFT JOIN websites_visited wv ON wv.website_url = isd.referrer_url
             WHERE it.full_filepath NOT IN (
                 SELECT DISTINCT full_filepath FROM image_ground_truth igt
                 WHERE igt.classification_issuer = ? AND igt.is_suspected_ad_manual IN (0, 1)
             ) AND it.full_filepath IN (
                 SELECT full_filepath FROM users_ground_truth_assignments WHERE classification_issuer = ?
-            )
+            ) ORDER BY RANDOM()
         """)
-        params = (username, username)
-    query += "\nORDER BY RANDOM()"
 
+        params = (user_param_value, user_param_value)
 
-    rows = conn.execute(query, params).fetchall()
+        rows = conn.execute(query, params).fetchall()
 
-    conn.close()
+        conn.close()
 
-    # convert query results into a string or JSON
-    result = [dict(row) for row in rows]
+        # convert query results into a string or JSON
+        result = [dict(row) for row in rows]
+    else:
+        result = []
     return {"data": result}  # Flask automatically JSON-encodes dicts
 
 @app.route('/results')
@@ -129,6 +124,18 @@ def update_classification():
 
     return {'success': True, 'updated': updated}
 
+@app.route('/user_options')
+def get_user_options():
+    conn = get_db_connection()
+    query = textwrap.dedent("""\
+        SELECT classification_issuer FROM classifier_users
+        ORDER BY classification_issuer
+    """)
+    params = ()
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    result = [row['classification_issuer'] for row in rows]
+    return {"data": result}
 
 if __name__ == '__main__':
     app.run(port=5000)
