@@ -43,7 +43,7 @@ def get_unclassified_imgs_w_text_data():
     conn = get_db_connection()
 
     query = textwrap.dedent("""\
-        SELECT it.id AS id, it.full_filepath, wv.website_url, text, text_script, wv.screenshot_filepath, wv.video_filepath FROM image_texts it
+        SELECT it.id AS id, it.full_filepath, wv.website_url, text, wv.screenshot_filepath, wv.video_filepath FROM image_texts it
         LEFT JOIN image_saved_data isd ON isd.full_filepath = it.full_filepath
         LEFT JOIN websites_visited wv ON wv.website_url = isd.referrer_url
     """)
