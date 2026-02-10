@@ -92,7 +92,10 @@ def update_classification():
         return {'error': 'Missing classification or filepath in request'}, 400
     classification = data['classification']
     filepath = data['filepath']
+    is_flagged_issue = data.get('flag_issue', False)
+    notes = data.get('notes', None)
     classification_issuer = data.get('classification_issuer', 'unknown')
+    is_ad_marker = data.get('is_ad_marker', False)
     conn = get_db_connection()
     cur = conn.cursor()
     try:
@@ -103,13 +106,17 @@ def update_classification():
         cur.execute(
             """
             INSERT INTO image_ground_truth
-                (full_filepath, is_suspected_ad_manual, classification_issuer)
-            VALUES (?, ?, ?) ON CONFLICT(classification_issuer, full_filepath)
+                (full_filepath, is_suspected_ad_manual, classification_issuer, flag_issue, notes, is_ad_marker)
+            VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(classification_issuer, full_filepath)
             DO
             UPDATE SET
-                is_suspected_ad_manual = excluded.is_suspected_ad_manual
+                is_suspected_ad_manual = excluded.is_suspected_ad_manual,
+                flag_issue = excluded.flag_issue,
+                notes = excluded.notes,
+                is_ad_marker = excluded.is_ad_marker,
+                updated_at = CURRENT_TIMESTAMP
             """,
-            (filepath, classification, classification_issuer),
+            (filepath, classification, classification_issuer, is_flagged_issue, notes, is_ad_marker),
         )
         conn.commit()
         updated = cur.rowcount
