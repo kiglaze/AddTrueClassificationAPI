@@ -66,6 +66,57 @@ def get_unclassified_imgs_w_text_data():
         result = []
     return {"data": result}  # Flask automatically JSON-encodes dicts
 
+@app.route('/count_total_questions')
+def get_count_total_questions():
+    user_param_value = request.args.get('user') or None
+    count = 0
+    if user_param_value is not None:
+        conn = get_db_connection()
+
+        query = textwrap.dedent("""\
+            SELECT COUNT(*) FROM image_texts it
+            LEFT JOIN image_saved_data isd ON isd.full_filepath = it.full_filepath
+            WHERE it.full_filepath IN (
+                SELECT full_filepath FROM users_ground_truth_assignments WHERE classification_issuer = ?
+            ) ORDER BY RANDOM()
+        """)
+
+        params = (user_param_value,)
+
+        result = conn.execute(query, params).fetchone()
+        count = result[0] if result else 0
+
+        conn.close()
+
+    return {"count": count}  # Flask automatically JSON-encodes dicts
+
+@app.route('/count_answered_questions')
+def get_count_answered_questions():
+    user_param_value = request.args.get('user') or None
+    count = 0
+    if user_param_value is not None:
+        conn = get_db_connection()
+
+        query = textwrap.dedent("""\
+            SELECT COUNT(*) FROM image_texts it
+            LEFT JOIN image_saved_data isd ON isd.full_filepath = it.full_filepath
+            WHERE it.full_filepath IN (
+                SELECT DISTINCT full_filepath FROM image_ground_truth igt
+                WHERE igt.classification_issuer = ? AND igt.is_suspected_ad_manual IN (0, 1)
+            ) AND it.full_filepath IN (
+                SELECT full_filepath FROM users_ground_truth_assignments WHERE classification_issuer = ?
+            ) ORDER BY RANDOM()
+        """)
+
+        params = (user_param_value, user_param_value)
+
+        result = conn.execute(query, params).fetchone()
+        count = result[0] if result else 0
+
+        conn.close()
+
+    return {"count": count}  # Flask automatically JSON-encodes dicts
+
 @app.route('/results')
 def get_ground_truth_results():
     conn = get_db_connection()
