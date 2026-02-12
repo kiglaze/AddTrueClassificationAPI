@@ -14,6 +14,7 @@ app = Flask(__name__)
 # Absolute path to your saved_images directory
 MITMPROXY_AD_PULL_PROJECT_DIR = os.getenv('MITMPROXY_AD_PULL_PROJECT_DIR')
 SAVED_IMAGES_DIR = os.path.join(MITMPROXY_AD_PULL_PROJECT_DIR.rstrip('/'), 'saved_images')
+ARCHIVED_CONVERTED_IMAGES_DIR = os.path.join(MITMPROXY_AD_PULL_PROJECT_DIR.rstrip('/'), 'archived_converted_images/saved_images')
 SCREENSHOTS_DIR = os.path.join(MITMPROXY_AD_PULL_PROJECT_DIR.rstrip('/'), 'browser_client_interface/screenshots')
 RECORDINGS_DIR = os.path.join(MITMPROXY_AD_PULL_PROJECT_DIR.rstrip('/'), 'browser_client_interface/recordings')
 
@@ -22,6 +23,10 @@ DATABASE_FILEPATH = os.path.join(MITMPROXY_AD_PULL_PROJECT_DIR.rstrip('/'), "ext
 @app.route('/saved_images/<path:filename>')
 def serve_saved_image(filename):
     return send_from_directory(SAVED_IMAGES_DIR, filename)
+
+@app.route('/archived_converted_images/saved_images/<path:filename>')
+def serve_archived_converted_image(filename):
+    return send_from_directory(ARCHIVED_CONVERTED_IMAGES_DIR, filename)
 
 @app.route('/browser_client_interface/recordings/<path:filename>')
 def serve_recording(filename):
