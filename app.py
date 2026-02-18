@@ -55,7 +55,7 @@ def get_unclassified_imgs_w_text_data():
                 SELECT DISTINCT full_filepath FROM image_ground_truth igt
                 WHERE igt.classification_issuer = ? AND igt.is_suspected_ad_manual IN (0, 1)
             ) AND it.full_filepath IN (
-                SELECT full_filepath FROM users_ground_truth_assignments WHERE classification_issuer = ?
+                SELECT full_filepath FROM users_ground_truth_assignments WHERE classification_issuer = ? AND is_active = 1
             ) ORDER BY RANDOM()
         """)
 
@@ -82,7 +82,7 @@ def get_count_total_questions():
             SELECT COUNT(*) FROM image_texts it
             LEFT JOIN image_saved_data isd ON isd.full_filepath = it.full_filepath
             WHERE it.full_filepath IN (
-                SELECT full_filepath FROM users_ground_truth_assignments WHERE classification_issuer = ?
+                SELECT full_filepath FROM users_ground_truth_assignments WHERE classification_issuer = ? AND is_active = 1
             ) ORDER BY RANDOM()
         """)
 
@@ -109,7 +109,7 @@ def get_count_answered_questions():
                 SELECT DISTINCT full_filepath FROM image_ground_truth igt
                 WHERE igt.classification_issuer = ? AND igt.is_suspected_ad_manual IN (0, 1)
             ) AND it.full_filepath IN (
-                SELECT full_filepath FROM users_ground_truth_assignments WHERE classification_issuer = ?
+                SELECT full_filepath FROM users_ground_truth_assignments WHERE classification_issuer = ? AND is_active = 1
             ) ORDER BY RANDOM()
         """)
 
@@ -129,7 +129,7 @@ def get_ground_truth_results():
         SELECT full_filepath, is_suspected_ad_manual, classification_issuer FROM image_ground_truth
         WHERE classification_issuer IS NOT NULL AND is_suspected_ad_manual IN (0, 1)
         AND image_ground_truth.full_filepath IN (
-            SELECT DISTINCT full_filepath FROM users_ground_truth_assignments
+            SELECT DISTINCT full_filepath FROM users_ground_truth_assignments WHERE is_active = 1
         )
         ORDER BY full_filepath, classification_issuer
     """)
