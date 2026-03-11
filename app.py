@@ -71,6 +71,27 @@ def get_unclassified_imgs_w_text_data():
         result = []
     return {"data": result}  # Flask automatically JSON-encodes dicts
 
+@app.route('/img_saved_data/<id>')
+def get_img_saved_data(id):
+    user_param_value = request.args.get('user') or None
+    conn = get_db_connection()
+
+    query = textwrap.dedent(""" \
+SELECT full_filepath, referrer_url, source_url, wv.screenshot_filepath, wv.video_filepath FROM image_saved_data
+    LEFT JOIN websites_visited wv ON wv.website_url = image_saved_data.referrer_url
+    WHERE id = ?
+                            """)
+
+    params = (id,)
+
+    result = conn.execute(query, params).fetchone()
+
+    conn.close()
+    if result is not None:
+        return {"data": dict(result)}  # Flask automatically JSON-encodes dicts
+    else:
+        return {"data": []}
+
 @app.route('/count_total_questions')
 def get_count_total_questions():
     user_param_value = request.args.get('user') or None
