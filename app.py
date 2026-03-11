@@ -147,12 +147,12 @@ def get_count_answered_questions():
 def get_ground_truth_results():
     conn = get_db_connection()
     query = textwrap.dedent("""\
-        SELECT full_filepath, is_suspected_ad_manual, classification_issuer FROM image_ground_truth
-        WHERE classification_issuer IS NOT NULL AND is_suspected_ad_manual IN (0, 1)
-        AND image_ground_truth.full_filepath IN (
-            SELECT DISTINCT full_filepath FROM users_ground_truth_assignments WHERE is_active = 1
-        )
-        ORDER BY full_filepath, classification_issuer
+        SELECT isd.full_filepath, is_suspected_ad_manual, igt.classification_issuer, isd.id FROM image_ground_truth igt
+            LEFT JOIN image_saved_data isd ON isd.full_filepath = igt.full_filepath
+            WHERE (isd.full_filepath, igt.classification_issuer) IN (
+                SELECT full_filepath, classification_issuer FROM users_ground_truth_assignments WHERE is_active = 1
+            ) AND is_suspected_ad_manual IN (0, 1) AND igt.classification_issuer IS NOT NULL
+            ORDER BY isd.full_filepath, igt.classification_issuer
     """)
     params = ()
     rows = conn.execute(query, params).fetchall()
