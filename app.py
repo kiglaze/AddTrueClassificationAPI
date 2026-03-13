@@ -221,5 +221,44 @@ def get_user_options():
     result = [row['classification_issuer'] for row in rows]
     return {"data": result}
 
+@app.route('/find_flagged')
+def get_flagged():
+    user_param_value = request.args.get('user') or None
+    conn = get_db_connection()
+    query = textwrap.dedent("""
+        SELECT igt.id AS ground_truth_id, igt.full_filepath, igt.is_suspected_ad_manual, igt.flag_issue, igt.notes, igt.classification_issuer, isd.id AS img_saved_data_id FROM image_ground_truth igt
+        LEFT JOIN image_saved_data isd ON igt.full_filepath = isd.full_filepath
+        LEFT JOIN websites_visited wv ON wv.website_url = isd.referrer_url
+    """).strip()
+    params = ()
+
+    if user_param_value is not None:
+        query += textwrap.dedent("""
+            WHERE flag_issue IS TRUE
+            AND classification_issuer = ?
+            AND isd.full_filepath IN (
+                SELECT full_filepath
+                FROM users_ground_truth_assignments
+                WHERE classification_issuer = ? AND is_active = 1
+            )
+        """)
+        # Pass the value twice since there are two '?' placeholders
+        params = (user_param_value, user_param_value)
+    else:
+        query += textwrap.dedent("""
+            WHERE flag_issue IS TRUE
+            AND isd.full_filepath IN (
+                SELECT full_filepath
+                FROM users_ground_truth_assignments
+                WHERE is_active = 1
+            )
+        """)
+        params = ()
+
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    result = [dict(row) for row in rows]
+    return {"data": result}
+
 if __name__ == '__main__':
     app.run(port=5000)
