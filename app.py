@@ -48,7 +48,7 @@ def get_unclassified_imgs_w_text_data():
         conn = get_db_connection()
 
         query = textwrap.dedent("""\
-            SELECT it.id AS id, it.full_filepath, wv.website_url, text, wv.screenshot_filepath, wv.video_filepath FROM image_texts it
+            SELECT isd.id AS id, it.full_filepath, wv.website_url, text, wv.screenshot_filepath, wv.video_filepath FROM image_texts it
             LEFT JOIN image_saved_data isd ON isd.full_filepath = it.full_filepath
             LEFT JOIN websites_visited wv ON wv.website_url = isd.referrer_url
             WHERE it.full_filepath NOT IN (
@@ -83,6 +83,31 @@ SELECT full_filepath, referrer_url, source_url, wv.screenshot_filepath, wv.video
                             """)
 
     params = (id,)
+
+    result = conn.execute(query, params).fetchone()
+
+    conn.close()
+    if result is not None:
+        return {"data": dict(result)}  # Flask automatically JSON-encodes dicts
+    else:
+        return {"data": []}
+
+@app.route('/img_truth_and_saved/<id>')
+def get_img_truth_and_saved_data(id):
+    user_param_value = request.args.get('user') or None
+    if user_param_value is None:
+        return {"data": []}
+    conn = get_db_connection()
+
+    query = textwrap.dedent(""" \
+        SELECT isd.full_filepath, referrer_url, source_url, wv.screenshot_filepath, wv.video_filepath, igtu.classification_issuer, igtu.is_suspected_ad_manual, igtu.flag_issue, igtu.notes, igtu.is_ad_marker, igtu.id AS igt_id, it.text FROM image_saved_data isd
+        LEFT JOIN websites_visited wv ON wv.website_url = isd.referrer_url
+        LEFT JOIN image_texts it ON it.full_filepath = isd.full_filepath
+        LEFT JOIN (SELECT * FROM image_ground_truth igt WHERE classification_issuer = ?) AS igtu ON igtu.full_filepath=isd.full_filepath
+        WHERE isd.id = ?;
+                            """)
+
+    params = (user_param_value, id)
 
     result = conn.execute(query, params).fetchone()
 
