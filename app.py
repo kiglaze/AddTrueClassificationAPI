@@ -48,9 +48,10 @@ def get_unclassified_imgs_w_text_data():
         conn = get_db_connection()
 
         query = textwrap.dedent("""\
-            SELECT isd.id AS id, it.full_filepath, wv.website_url, text, wv.screenshot_filepath, wv.video_filepath FROM image_texts it
+            SELECT isd.id AS id, isd.full_filepath, referrer_url, source_url, wv.screenshot_filepath, wv.video_filepath, igtu.classification_issuer, igtu.is_suspected_ad_manual, igtu.flag_issue, igtu.notes, igtu.is_ad_marker, igtu.id AS igt_id, it.text FROM image_texts it
             LEFT JOIN image_saved_data isd ON isd.full_filepath = it.full_filepath
             LEFT JOIN websites_visited wv ON wv.website_url = isd.referrer_url
+            LEFT JOIN (SELECT * FROM image_ground_truth igt WHERE classification_issuer = ?) AS igtu ON igtu.full_filepath=isd.full_filepath
             WHERE it.full_filepath NOT IN (
                 SELECT DISTINCT full_filepath FROM image_ground_truth igt
                 WHERE igt.classification_issuer = ? AND igt.is_suspected_ad_manual IN (0, 1)
@@ -59,7 +60,7 @@ def get_unclassified_imgs_w_text_data():
             ) ORDER BY RANDOM()
         """)
 
-        params = (user_param_value, user_param_value)
+        params = (user_param_value, user_param_value, user_param_value)
 
         rows = conn.execute(query, params).fetchall()
 
